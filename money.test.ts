@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateLine, calculateVat, eurosToCents } from "../src/money.js";
+import { calculateLine, calculateVat, eurosToCents } from "./money.js";
 
 test("convierte euros a céntimos con redondeo comercial", () => {
   assert.equal(eurosToCents("12.345"), 1235);
