@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Facturación Telefonía · RED PRIMER CORP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/usage.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">RP</span><span>RED PRIMER CORP</span></div>
+    <nav aria-label="Secciones">
+      <button class="nav-item active" data-view="overview">Resumen</button>
+      <button class="nav-item" data-view="customers">Clientes</button>
+      <button class="nav-item" data-view="services">Líneas</button>
+      <button class="nav-item" data-view="invoices">Facturas</button>
+      <button class="nav-item" data-view="settings">Configuración</button>
+    </nav>
+    <div class="top-actions">
+      <span id="sync-status" class="sync-status">Sin comprobar</span>
+      <button id="sync-button" class="button button-secondary" title="Sincronizar Nexlink">↻ <span>Sincronizar</span></button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-overview" class="view active">
+      <div class="page-heading">
+        <div><p class="eyebrow">OPERACIÓN</p><h1>Facturación de telefonía</h1><p>Control de datos, revisión fiscal y emisión desde un único flujo.</p></div>
+        <button class="button button-primary" data-action="new-invoice">＋ Nueva factura</button>
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="workspace-grid">
+        <section class="plain-section">
+          <div class="section-title"><div><h2>Facturas recientes</h2><p>Estado de los últimos periodos preparados.</p></div><button class="text-button" data-view-link="invoices">Ver todas →</button></div>
+          <div id="recent-invoices" class="table-wrap"></div>
+        </section>
+        <aside class="attention-panel">
+          <p class="eyebrow">ANTES DE EMITIR</p>
+          <h2>Revisión pendiente</h2>
+          <div id="attention-list"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-customers" class="view">
+      <div class="page-heading"><div><p class="eyebrow">MAESTROS</p><h1>Clientes</h1><p>Datos fiscales y condiciones verificadas de facturación.</p></div></div>
+      <div id="customers-table" class="table-wrap"></div>
+    </section>
+
+    <section id="view-services" class="view">
+      <div class="page-heading"><div><p class="eyebrow">SERVICIOS</p><h1>Líneas y tarifas</h1><p>La tarifa facturable es propia; el catálogo Nexlink solo sirve como referencia.</p></div><button class="button button-primary" id="new-rate">＋ Crear tarifa</button></div>
+      <div id="services-table" class="table-wrap"></div>
+    </section>
+
+    <section id="view-invoices" class="view">
+      <div class="page-heading"><div><p class="eyebrow">DOCUMENTOS</p><h1>Facturas</h1><p>Vista previa, aprobación explícita y trazabilidad del envío.</p></div><button class="button button-primary" data-action="new-invoice">＋ Nueva factura</button></div>
+      <div id="invoices-table" class="table-wrap"></div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div class="page-heading"><div><p class="eyebrow">CONTROL</p><h1>Configuración</h1><p>Numeración e impuestos. Comprueba estos valores antes de la primera factura.</p></div></div>
+      <form id="settings-form" class="settings-form">
+        <label>Serie de facturación<input name="invoiceSeries" placeholder="Ej. FT26" required></label>
+        <label>Siguiente número<input name="nextInvoiceNumber" type="number" min="1" required></label>
+        <label>IVA predeterminado (%)<input name="defaultVatRate" type="number" min="0" max="100" step="0.01" required></label>
+        <label>Plazo de pago (días)<input name="defaultPaymentDays" type="number" min="0" required></label>
+        <button class="button button-primary" type="submit">Guardar configuración</button>
+      </form>
+      <div class="integration-strip" id="integrations"></div>
+    </section>
+  </main>
+
+  <dialog id="invoice-dialog">
+    <form method="dialog" class="dialog-shell" id="invoice-form">
+      <div class="dialog-header"><div><p class="eyebrow">NUEVO BORRADOR</p><h2>Preparar factura</h2></div><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div>
+      <label>Cliente<select name="customerId" required></select></label>
+      <div class="two-col"><label>Inicio del periodo<input type="date" name="periodStart" required></label><label>Fin del periodo<input type="date" name="periodEnd" required></label></div>
+      <div id="invoice-form-error" class="form-error" hidden></div>
+      <div class="dialog-actions"><button class="button button-secondary" value="cancel">Cancelar</button><button class="button button-primary" type="submit" value="default">Generar vista previa</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="preview-dialog">
+    <div class="dialog-shell preview-shell">
+      <div class="dialog-header"><div><p class="eyebrow">REVISIÓN OBLIGATORIA</p><h2>Vista previa de factura</h2></div><button class="icon-button" data-close="preview" aria-label="Cerrar">×</button></div>
+      <div id="preview-content"></div>
+      <div class="approval-box"><label>Para emitir y enviar, escribe <strong>EMITIR Y ENVIAR</strong><input id="confirmation-input" autocomplete="off"></label></div>
+      <div id="approval-error" class="form-error" hidden></div>
+      <div class="dialog-actions"><button class="button button-secondary" data-close="preview">Volver</button><button class="button button-danger" id="approve-button">Emitir y enviar</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="rate-dialog">
+    <form method="dialog" class="dialog-shell" id="rate-form">
+      <div class="dialog-header"><div><p class="eyebrow">TARIFA PROPIA</p><h2>Crear tarifa</h2></div><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div>
+      <label>Nombre<input name="name" required></label><label>Tipo de servicio<select name="serviceType"><option>Móvil</option><option>Fibra</option><option>Fijo</option><option>TV</option><option>Otro</option></select></label>
+      <div class="two-col"><label>Cuota mensual (€)<input name="monthlyFee" type="number" min="0" step="0.01" required></label><label>GB incluidos<input name="includedGb" type="number" min="0" step="0.001"></label></div>
+      <div class="two-col"><label>Precio exceso/GB (€)<input name="excessGb" type="number" min="0" step="0.01"></label><label>Otros cargos fijos (€)<input name="fixedCharges" type="number" min="0" step="0.01" value="0"></label></div>
+      <div class="dialog-actions"><button class="button button-secondary" value="cancel">Cancelar</button><button class="button button-primary" type="submit" value="default">Crear tarifa</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="usage-dialog">
+    <form method="dialog" class="dialog-shell" id="usage-form">
+      <div class="dialog-header"><div><p class="eyebrow">DATO VERIFICADO</p><h2>Registrar consumo</h2></div><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div>
+      <input name="serviceId" type="hidden">
+      <p id="usage-line" class="muted-copy"></p>
+      <div class="two-col"><label>Inicio del periodo<input type="date" name="periodStart" required></label><label>Fin del periodo<input type="date" name="periodEnd" required></label></div>
+      <label>GB consumidos<input type="number" name="consumedGb" min="0" step="0.001" required></label>
+      <div class="dialog-actions"><button class="button button-secondary" value="cancel">Cancelar</button><button class="button button-primary" type="submit" value="default">Guardar consumo</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="customer-dialog">
+    <form method="dialog" class="dialog-shell" id="customer-form">
+      <div class="dialog-header"><div><p class="eyebrow">DATOS FISCALES</p><h2>Editar cliente</h2></div><button class="icon-button" value="cancel" aria-label="Cerrar">×</button></div>
+      <input name="customerId" type="hidden">
+      <p id="customer-name" class="muted-copy"></p>
+      <div class="two-col"><label>NIF/CIF<input name="taxId" required></label><label>Email de facturación<input name="billingEmail" type="email" required></label></div>
+      <label>Dirección fiscal<input name="billingAddress" required></label>
+      <div class="two-col"><label>IVA específico (%)<input name="vatRate" type="number" min="0" max="100" step="0.01" placeholder="Usar predeterminado"></label><label>Plazo específico (días)<input name="paymentDays" type="number" min="0" placeholder="Usar predeterminado"></label></div>
+      <div class="dialog-actions"><button class="button button-secondary" value="cancel">Cancelar</button><button class="button button-primary" type="submit" value="default">Guardar cliente</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
