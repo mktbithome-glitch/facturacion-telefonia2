@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import type pg from "pg";
 import { calculateLine, calculateVat } from "./money.js";
 
 export class ValidationError extends Error {
