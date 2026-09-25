@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import Decimal from "decimal.js";
 import type pg from "pg";
 import { calculateLine, calculateVat } from "./money.js";
 
