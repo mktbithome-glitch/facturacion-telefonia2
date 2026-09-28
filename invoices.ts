@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type pg from "pg";
+import { Pool } from "pg";
 import { calculateLine, calculateVat } from "./money.js";
 
 export class ValidationError extends Error {
@@ -26,7 +26,7 @@ export type InvoiceRecord = {
   billing_address: string;
 };
 
-export async function previewInvoice(pool: pg.Pool, input: { customerId: string; periodStart: string; periodEnd: string }) {
+export async function previewInvoice(pool: Pool, input: { customerId: string; periodStart: string; periodEnd: string }) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -68,7 +68,7 @@ export async function previewInvoice(pool: pg.Pool, input: { customerId: string;
     }
     if (issues.length) throw new ValidationError(issues);
 
-    const lines = services.rows.map((service) => {
+    const lines = services.rows.map((service: any) => {
       const line = calculateLine({
         monthlyFeeCents: service.monthly_fee_cents,
         consumedGb: service.consumed_gb,
@@ -84,7 +84,7 @@ export async function previewInvoice(pool: pg.Pool, input: { customerId: string;
     for (const line of lines) {
       if (line.amountCents < 0) throw new ValidationError([`El descuento de la línea ${line.line_identifier} supera sus cargos.`]);
     }
-    const subtotal = lines.reduce((sum, line) => sum + line.amountCents, 0);
+    const subtotal = lines.reduce((sum: number, line: any) => sum + line.amountCents, 0);
     const vat = calculateVat(subtotal, vatRate);
     const invoice = await client.query<{ id: string }>(
       `INSERT INTO invoices
@@ -98,7 +98,7 @@ export async function previewInvoice(pool: pg.Pool, input: { customerId: string;
         `INSERT INTO invoice_lines
           (invoice_id, service_id, line_identifier, rate_name, included_gb, consumed_gb, excess_gb,
            monthly_fee_cents, usage_charges_cents, other_charges_cents, discount_cents, amount_cents)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [invoice.rows[0]!.id, line.id, line.line_identifier, line.rate_name, line.included_gb,
           line.consumedGb, line.excessGb, line.monthly_fee_cents, 0,
           line.fixed_charges_cents, line.discount_cents, line.amountCents]
@@ -115,7 +115,7 @@ export async function previewInvoice(pool: pg.Pool, input: { customerId: string;
   }
 }
 
-export async function getInvoice(pool: pg.Pool, id: string) {
+export async function getInvoice(pool: Pool, id: string) {
   const invoice = await pool.query<InvoiceRecord>(
     `SELECT i.*, c.name AS customer_name, c.tax_id, c.billing_address,
             COALESCE(i.invoice_number, s.invoice_series || '-' || lpad(s.next_invoice_number::text,5,'0')) AS display_invoice_number
@@ -126,7 +126,7 @@ export async function getInvoice(pool: pg.Pool, id: string) {
   return { ...invoice.rows[0]!, lines: lines.rows };
 }
 
-export async function reserveInvoiceNumber(pool: pg.Pool, id: string) {
+export async function reserveInvoiceNumber(pool: Pool, id: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
