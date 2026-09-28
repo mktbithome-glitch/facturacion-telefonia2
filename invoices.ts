@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type pg from "pg";
 import { calculateLine, calculateVat } from "./money.js";
 
 export class ValidationError extends Error {
@@ -122,7 +123,7 @@ export async function getInvoice(pool: pg.Pool, id: string) {
   );
   if (!invoice.rowCount) return null;
   const lines = await pool.query("SELECT * FROM invoice_lines WHERE invoice_id=$1 ORDER BY line_identifier", [id]);
-  return { ...invoice.rows[0], lines: lines.rows };
+  return { ...invoice.rows[0]!, lines: lines.rows };
 }
 
 export async function reserveInvoiceNumber(pool: pg.Pool, id: string) {

@@ -52,7 +52,7 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
       );
     }
     for (const raw of services) {
-      const customer = raw.customer || {};
+      const customer = (raw.customer && typeof raw.customer === "object" ? raw.customer : {}) as Json;
       const customerId = Number(raw.customerId ?? customer.id);
       if (!Number.isFinite(customerId) || !Number.isFinite(Number(raw.id))) continue;
       const savedCustomer = await client.query<{ id: string }>(
@@ -67,8 +67,8 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
         [customerId, customerName(customer), customer.cif || customer.identityCard || null, customerAddress(customer) || null,
           customer.email || null, customer.phone || null, Number(customer.type) === 3 ? "Empresa" : "Particular", customer]
       );
-      const info = raw.info || {};
-      const product = info.gelpiuProduct || {};
+      const info = (raw.info && typeof raw.info === "object" ? raw.info : {}) as Json;
+      const product = (info.gelpiuProduct && typeof info.gelpiuProduct === "object" ? info.gelpiuProduct : {}) as Json;
       const line = raw.externalId || raw.customerNumber || info.phone || `Servicio ${raw.id}`;
       await client.query(
         `INSERT INTO services
@@ -95,6 +95,7 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
       const timestamp = Number(raw.usageTimestamp);
       if (!Number.isFinite(id) || !Number.isFinite(timestamp)) continue;
       const service = await client.query<{ id: string }>("SELECT id FROM services WHERE nexlink_id=$1", [raw.serviceId]);
+      const amount = typeof raw.amount === "string" || typeof raw.amount === "number" ? raw.amount : 0;
       await client.query(
         `INSERT INTO usage_calls
           (nexlink_id, service_id, customer_nexlink_id, customer_number, used_at, duration_seconds, amount_cents, raw_data, synced_at)
@@ -103,7 +104,7 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
           customer_number=EXCLUDED.customer_number, used_at=EXCLUDED.used_at, duration_seconds=EXCLUDED.duration_seconds,
           amount_cents=EXCLUDED.amount_cents, raw_data=EXCLUDED.raw_data, synced_at=now()`,
         [id, service.rows[0]?.id ?? null, raw.customerId ?? null, raw.customerNumber ?? null,
-          timestamp, raw.durationSeconds ?? null, eurosToCents(raw.amount ?? 0), raw]
+          timestamp, raw.durationSeconds ?? null, eurosToCents(amount), raw]
       );
     }
     await client.query("COMMIT");
