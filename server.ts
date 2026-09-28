@@ -254,7 +254,7 @@ app.post("/api/invoices/:id/approve", async (req, res) => {
     ]);
     throw error;
   }
-  res.json(await getInvoice(pool, invoice.id));
+  res.json(await getInvoice(pool, invoice.id!));
 });
 
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
