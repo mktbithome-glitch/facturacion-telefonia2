@@ -1,6 +1,6 @@
 import { Pool } from "pg";
-import { eurosToCents } from "./money.js";
-import type { NexlinkClient } from "./nexlink.js";
+import { eurosToCents } from "./money";
+import type { NexlinkClient } from "./nexlink";
 
 type Json = Record<string, any>;
 
@@ -32,13 +32,16 @@ export async function syncNexlink(pool: Pool, nexlink: NexlinkClient) {
   if (!nexlink.configured()) throw new Error("Configura Nexlink antes de sincronizar");
   const client = await pool.connect();
   try {
-    const [products, services] = await Promise.all([
+    const [productsRaw, servicesRaw] = await Promise.all([
       nexlink.listProducts(),
       nexlink.listAll("/services/list")
     ]);
+
+    const products = (productsRaw || []) as Json[];
+    const services = (servicesRaw || []) as Json[];
+
     await client.query("BEGIN");
-    for (const rawItem of products) {
-      const raw = rawItem as Json;
+    for (const raw of products) {
       const p = productInfo(raw);
       if (!Number.isFinite(p.id)) continue;
       await client.query(
@@ -52,8 +55,7 @@ export async function syncNexlink(pool: Pool, nexlink: NexlinkClient) {
         [p.id, p.name, p.type, raw.priceBase ?? null, raw.recommendedPriceBase ?? null, p.includedGb, p.includedMinutes, raw]
       );
     }
-    for (const rawItem of services) {
-      const raw = rawItem as Json;
+    for (const raw of services) {
       const customer = (raw.customer && typeof raw.customer === "object" ? raw.customer : {}) as Json;
       const customerId = Number(raw.customerId ?? customer.id);
       if (!Number.isFinite(customerId) || !Number.isFinite(Number(raw.id))) continue;
@@ -90,10 +92,11 @@ export async function syncNexlink(pool: Pool, nexlink: NexlinkClient) {
     }
     await client.query("COMMIT");
 
-    const calls = await nexlink.listAll("/cdrs/calls");
+    const callsRaw = await nexlink.listAll("/cdrs/calls");
+    const calls = (callsRaw || []) as Json[];
+
     await client.query("BEGIN");
-    for (const rawItem of calls) {
-      const raw = rawItem as Json;
+    for (const raw of calls) {
       const id = Number(raw.id);
       const timestamp = Number(raw.usageTimestamp);
       if (!Number.isFinite(id) || !Number.isFinite(timestamp)) continue;
