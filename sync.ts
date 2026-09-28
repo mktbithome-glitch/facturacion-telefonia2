@@ -1,6 +1,6 @@
 import { Pool } from "pg";
-import { eurosToCents } from "./money";
-import type { NexlinkClient } from "./nexlink";
+import { eurosToCents } from "./money.js";
+import type { NexlinkClient } from "./nexlink.js";
 
 type Json = Record<string, any>;
 
