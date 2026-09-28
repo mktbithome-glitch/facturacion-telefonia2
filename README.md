@@ -71,3 +71,6 @@ npm start
 5. Configura la numeración.
 6. Genera una vista previa y revisa destinatario, periodo, líneas e importes.
 7. Escribe la confirmación exacta para emitir y enviar.
+
+
+<!-- railway-redeploy-trigger: 2026-09-28 -->
