@@ -1,4 +1,4 @@
-import type pg from "pg";
+import { Pool } from "pg";
 import { eurosToCents } from "./money.js";
 import type { NexlinkClient } from "./nexlink.js";
 
@@ -10,7 +10,7 @@ function customerName(customer: Json) {
 
 function customerAddress(customer: Json) {
   if (customer.address) return String(customer.address);
-  const a = customer.address_object || {};
+  const a = (customer.address_object || {}) as Json;
   const street = [a.streetType, a.streetName, a.streetNumber].filter(Boolean).join(" ");
   const extra = [a.planta && `Planta ${a.planta}`, a.puerta && `Puerta ${a.puerta}`, a.bloque && `Bloque ${a.bloque}`].filter(Boolean).join(", ");
   const city = [a.postCode || a.postalCode, a.city, a.province].filter(Boolean).join(" ");
@@ -18,7 +18,7 @@ function customerAddress(customer: Json) {
 }
 
 function productInfo(product: Json) {
-  const data = product.data || {};
+  const data = (product.data || {}) as Json;
   return {
     id: Number(product.id),
     name: String(product.name || `Producto ${product.id}`),
@@ -28,7 +28,7 @@ function productInfo(product: Json) {
   };
 }
 
-export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
+export async function syncNexlink(pool: Pool, nexlink: NexlinkClient) {
   if (!nexlink.configured()) throw new Error("Configura Nexlink antes de sincronizar");
   const client = await pool.connect();
   try {
@@ -37,7 +37,8 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
       nexlink.listAll("/services/list")
     ]);
     await client.query("BEGIN");
-    for (const raw of products) {
+    for (const rawItem of products) {
+      const raw = rawItem as Json;
       const p = productInfo(raw);
       if (!Number.isFinite(p.id)) continue;
       await client.query(
@@ -51,7 +52,8 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
         [p.id, p.name, p.type, raw.priceBase ?? null, raw.recommendedPriceBase ?? null, p.includedGb, p.includedMinutes, raw]
       );
     }
-    for (const raw of services) {
+    for (const rawItem of services) {
+      const raw = rawItem as Json;
       const customer = (raw.customer && typeof raw.customer === "object" ? raw.customer : {}) as Json;
       const customerId = Number(raw.customerId ?? customer.id);
       if (!Number.isFinite(customerId) || !Number.isFinite(Number(raw.id))) continue;
@@ -90,7 +92,8 @@ export async function syncNexlink(pool: pg.Pool, nexlink: NexlinkClient) {
 
     const calls = await nexlink.listAll("/cdrs/calls");
     await client.query("BEGIN");
-    for (const raw of calls) {
+    for (const rawItem of calls) {
+      const raw = rawItem as Json;
       const id = Number(raw.id);
       const timestamp = Number(raw.usageTimestamp);
       if (!Number.isFinite(id) || !Number.isFinite(timestamp)) continue;
