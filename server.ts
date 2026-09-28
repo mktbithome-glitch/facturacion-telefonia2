@@ -3,14 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { z } from "zod";
-import { loadConfig } from "./config";
-import { createPool, migrate } from "./db";
-import { getInvoice, previewInvoice, reserveInvoiceNumber, sha256, ValidationError } from "./invoices";
-import { InvoiceMailer } from "./mailer";
-import { NexlinkClient } from "./nexlink";
-import { NotionInvoices } from "./notion";
-import { renderInvoicePdf } from "./pdf";
-import { syncNexlink } from "./sync";
+import { loadConfig } from "./config.js";
+import { createPool, migrate } from "./db.js";
+import { getInvoice, previewInvoice, reserveInvoiceNumber, sha256, ValidationError } from "./invoices.js";
+import { InvoiceMailer } from "./mailer.js";
+import { NexlinkClient } from "./nexlink.js";
+import { NotionInvoices } from "./notion.js";
+import { renderInvoicePdf } from "./pdf.js";
+import { syncNexlink } from "./sync.js";
 
 const config = loadConfig();
 const pool = createPool(config.DATABASE_URL);
@@ -97,7 +97,7 @@ app.patch("/api/customers/:id", async (req, res) => {
   const result = await pool.query(
     `UPDATE customers SET tax_id=$2,billing_address=$3,billing_email=$4,vat_rate=$5,payment_days=$6,invoice_series=$7,updated_at=now()
      WHERE id=$1 RETURNING *`,
-    [req.params.id, body.taxId, body.billingAddress, body.billingEmail, body.vatRate, body.paymentDays, body.invoiceSeries]
+    [req.params.id!, body.taxId, body.billingAddress, body.billingEmail, body.vatRate, body.paymentDays, body.invoiceSeries]
   );
   res.json(result.rows[0]);
 });
@@ -139,7 +139,7 @@ app.post("/api/rates", async (req, res) => {
 app.patch("/api/services/:id/rate", async (req, res) => {
   const body = z.object({ rateId: z.string().uuid(), discountCents: z.number().int().min(0).default(0) }).parse(req.body);
   const result = await pool.query("UPDATE services SET rate_id=$2,discount_cents=$3 WHERE id=$1 RETURNING *", [
-    req.params.id,
+    req.params.id!,
     body.rateId,
     body.discountCents
   ]);
@@ -154,7 +154,7 @@ app.post("/api/services/:id/data-usage", async (req, res) => {
      VALUES ($1,$2,$3,$4,'admin')
      ON CONFLICT (service_id,period_start,period_end) DO UPDATE SET consumed_gb=EXCLUDED.consumed_gb,
        verified_by='admin',verified_at=now() RETURNING *`,
-    [req.params.id, body.periodStart, body.periodEnd, body.consumedGb]
+    [req.params.id!, body.periodStart, body.periodEnd, body.consumedGb]
   );
   res.json(result.rows[0]);
 });
@@ -193,13 +193,13 @@ app.post("/api/invoices/preview", async (req, res) => {
 });
 
 app.get("/api/invoices/:id", async (req, res) => {
-  const invoice = await getInvoice(pool, req.params.id);
+  const invoice = await getInvoice(pool, req.params.id!);
   if (!invoice) return res.status(404).json({ error: "Factura no encontrada" });
   res.json(invoice);
 });
 
 app.get("/api/invoices/:id/pdf", async (req, res) => {
-  const result = await pool.query("SELECT invoice_number,pdf_data FROM invoices WHERE id=$1", [req.params.id]);
+  const result = await pool.query("SELECT invoice_number,pdf_data FROM invoices WHERE id=$1", [req.params.id!]);
   if (!result.rowCount || !result.rows[0].pdf_data) return res.status(404).json({ error: "PDF no disponible" });
   res.type("application/pdf").setHeader("Content-Disposition", `inline; filename=Factura-${result.rows[0].invoice_number}.pdf`);
   res.send(result.rows[0].pdf_data);
@@ -209,18 +209,18 @@ app.post("/api/invoices/:id/discard", async (req, res) => {
   const result = await pool.query(
     `UPDATE invoices SET status='Anulada',updated_at=now()
      WHERE id=$1 AND invoice_number IS NULL AND status IN ('Borrador','Lista para revisión') RETURNING *`,
-    [req.params.id]
+    [req.params.id!]
   );
   if (!result.rowCount) throw new ValidationError(["Solo se puede descartar una vista previa que aún no tenga número."]);
-  await pool.query("INSERT INTO audit_log (invoice_id,action,actor) VALUES ($1,'PREVIEW_DISCARDED','admin')", [req.params.id]);
+  await pool.query("INSERT INTO audit_log (invoice_id,action,actor) VALUES ($1,'PREVIEW_DISCARDED','admin')", [req.params.id!]);
   res.json(result.rows[0]);
 });
 
 app.post("/api/invoices/:id/approve", async (req, res) => {
   const body = z.object({ confirmation: z.literal("EMITIR Y ENVIAR") }).parse(req.body);
   void body;
-  await reserveInvoiceNumber(pool, req.params.id);
-  const invoice = await getInvoice(pool, req.params.id);
+  await reserveInvoiceNumber(pool, req.params.id!);
+  const invoice = await getInvoice(pool, req.params.id!);
   if (!invoice) throw new Error("Factura no encontrada");
   const pdf = await renderInvoicePdf(invoice);
   await pool.query("UPDATE invoices SET pdf_data=$2,pdf_sha256=$3,updated_at=now() WHERE id=$1", [invoice.id, pdf, sha256(pdf)]);
